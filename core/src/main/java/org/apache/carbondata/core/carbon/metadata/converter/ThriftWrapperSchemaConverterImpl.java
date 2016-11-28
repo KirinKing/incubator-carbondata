@@ -194,7 +194,7 @@ public class ThriftWrapperSchemaConverterImpl implements SchemaConverter {
    * convert from wrapper to external tableinfo
    */
   @Override public org.apache.carbondata.format.TableInfo fromWrapperToExternalTableInfo(
-      TableInfo wrapperTableInfo, String dbName, String tableName) {
+      TableInfo wrapperTableInfo) {
 
     org.apache.carbondata.format.TableSchema thriftFactTable =
         fromWrapperToExternalTableSchema(wrapperTableInfo.getFactTable());

@@ -53,15 +53,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{RuntimeConfig, SparkSession}
 import org.apache.spark.sql.catalyst.expressions.AttributeReference
 
-case class MetaData(var tablesMeta: ArrayBuffer[TableMeta])
-
-case class CarbonMetaData(dims: Seq[String],
-    msrs: Seq[String],
-    carbonTable: CarbonTable,
-    dictionaryMap: DictionaryMap)
-
-case class TableMeta(carbonTableIdentifier: CarbonTableIdentifier, storePath: String,
-    var carbonTable: CarbonTable)
+case class MetaData(var tablesMeta: ArrayBuffer[CarbonTable])
 
 object CarbonMetastore {
 
@@ -119,9 +111,9 @@ class CarbonMetastore(conf: RuntimeConfig, val storePath: String) extends Loggin
 
   def getTableCreationTime(databaseName: String, tableName: String): Long = {
     val tableMeta = metadata.tablesMeta.filter(
-      c => c.carbonTableIdentifier.getDatabaseName.equalsIgnoreCase(databaseName) &&
-           c.carbonTableIdentifier.getTableName.equalsIgnoreCase(tableName))
-    val tableCreationTime = tableMeta.head.carbonTable.getTableLastUpdatedTime
+      c => c.getDatabaseName.equalsIgnoreCase(databaseName) &&
+           c.getTableName.equalsIgnoreCase(tableName))
+    val tableCreationTime = tableMeta.head.getTableLastUpdatedTime
     tableCreationTime
   }
 
@@ -139,8 +131,7 @@ class CarbonMetastore(conf: RuntimeConfig, val storePath: String) extends Loggin
     val tables = getTableFromMetadata(database, tableIdentifier.table)
     tables match {
       case Some(t) =>
-        CarbonRelation(database, tableIdentifier.table,
-          CarbonSparkUtil.createSparkMeta(tables.head.carbonTable), tables.head, alias)
+        CarbonRelation(database, tableIdentifier.table, tables.head, alias)
       case None =>
         LOGGER.audit(s"Table Not Found: ${tableIdentifier.table}")
         throw new NoSuchTableException(database, tableIdentifier.table)
@@ -155,18 +146,18 @@ class CarbonMetastore(conf: RuntimeConfig, val storePath: String) extends Loggin
    * @return
    */
   def getTableFromMetadata(database: String,
-      tableName: String): Option[TableMeta] = {
+      tableName: String): Option[CarbonTable] = {
     metadata.tablesMeta
-      .find(c => c.carbonTableIdentifier.getDatabaseName.equalsIgnoreCase(database) &&
-                 c.carbonTableIdentifier.getTableName.equalsIgnoreCase(tableName))
+      .find(c => c.getDatabaseName.equalsIgnoreCase(database) &&
+                 c.getTableName.equalsIgnoreCase(tableName))
   }
 
   def tableExists(tableIdentifier: TableIdentifier)(sparkSession: SparkSession): Boolean = {
     checkSchemasModifiedTimeAndReloadTables()
     val database = tableIdentifier.database.getOrElse(sparkSession.catalog.currentDatabase)
     val tables = metadata.tablesMeta.filter(
-      c => c.carbonTableIdentifier.getDatabaseName.equalsIgnoreCase(database) &&
-           c.carbonTableIdentifier.getTableName.equalsIgnoreCase(tableIdentifier.table))
+      c => c.getDatabaseName.equalsIgnoreCase(database) &&
+           c.getTableName.equalsIgnoreCase(tableIdentifier.table))
     tables.nonEmpty
   }
 
@@ -285,8 +276,7 @@ class CarbonMetastore(conf: RuntimeConfig, val storePath: String) extends Loggin
       sys.error(s"Table [$tableName] already exists under Database [$dbName]")
     }
     val schemaConverter = new ThriftWrapperSchemaConverterImpl
-    val thriftTableInfo = schemaConverter
-      .fromWrapperToExternalTableInfo(tableInfo, dbName, tableName)
+    val thriftTableInfo = schemaConverter.fromWrapperToExternalTableInfo(tableInfo)
     val schemaEvolutionEntry = new SchemaEvolutionEntry(tableInfo.getLastUpdatedTime)
     thriftTableInfo.getFact_table.getSchema_evolution.getSchema_evolution_history
       .add(schemaEvolutionEntry)
@@ -298,6 +288,47 @@ class CarbonMetastore(conf: RuntimeConfig, val storePath: String) extends Loggin
     val schemaMetadataPath = CarbonTablePath.getFolderContainingFile(schemaFilePath)
     tableInfo.setMetaDataFilepath(schemaMetadataPath)
     tableInfo.setStorePath(storePath)
+    CarbonMetadata.getInstance().loadTableMetadata(tableInfo)
+    val tableMeta = TableMeta(
+      carbonTableIdentifier,
+      storePath,
+      CarbonMetadata.getInstance().getCarbonTable(dbName + "_" + tableName))
+
+    val fileType = FileFactory.getFileType(schemaMetadataPath)
+    if (!FileFactory.isFileExist(schemaMetadataPath, fileType)) {
+      FileFactory.mkdirs(schemaMetadataPath, fileType)
+    }
+    val thriftWriter = new ThriftWriter(schemaFilePath, false)
+    thriftWriter.open()
+    thriftWriter.write(thriftTableInfo)
+    thriftWriter.close()
+    metadata.tablesMeta += tableMeta
+    logInfo(s"Table $tableName for Database $dbName created successfully.")
+    LOGGER.info(s"Table $tableName for Database $dbName created successfully.")
+    updateSchemasUpdatedTime(touchSchemaFileSystemTime(dbName, tableName))
+    carbonTablePath.getPath
+  }
+
+  /**
+    *
+    * Prepare Thrift Schema from wrapper TableInfo and write to Schema file.
+    * Load CarbonTable from wrapper tableinfo
+    *
+    */
+  def createTableFromThriftWF(
+      tableInfo: org.apache.carbondata.core.carbon.metadata.schema.table.TableInfo,
+      tablePath: String)
+      (sparkSession: SparkSession): String = {
+    val schemaConverter = new ThriftWrapperSchemaConverterImpl
+    val thriftTableInfo = schemaConverter.fromWrapperToExternalTableInfo(tableInfo)
+    val schemaEvolutionEntry = new SchemaEvolutionEntry(tableInfo.getLastUpdatedTime)
+    thriftTableInfo.getFact_table.getSchema_evolution.getSchema_evolution_history
+      .add(schemaEvolutionEntry)
+
+    val carbonTablePath = CarbonStorePath.getCarbonTablePath(tablePath)
+    val schemaFilePath = carbonTablePath.getSchemaFilePath
+    val schemaMetadataPath = CarbonTablePath.getFolderContainingFile(schemaFilePath)
+    tableInfo.setMetaDataFilepath(schemaMetadataPath)
     CarbonMetadata.getInstance().loadTableMetadata(tableInfo)
     val tableMeta = TableMeta(
       carbonTableIdentifier,
@@ -691,8 +722,7 @@ object CarbonMetastoreTypes extends RegexParsers {
 case class CarbonRelation(
     databaseName: String,
     tableName: String,
-    metaData: CarbonMetaData,
-    tableMeta: TableMeta,
+    carbonTable: CarbonTable,
     alias: Option[String])
   extends LeafNode with MultiInstanceRelation {
 

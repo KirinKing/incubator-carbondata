@@ -20,8 +20,6 @@ package org.apache.carbondata.processing.newflow;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.carbondata.core.carbon.AbsoluteTableIdentifier;
-
 public class CarbonDataLoadConfiguration {
 
   private DataField[] dataFields;

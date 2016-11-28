@@ -22,7 +22,6 @@ package org.apache.carbondata.scan.filter.resolver;
 import java.util.List;
 import java.util.SortedMap;
 
-import org.apache.carbondata.core.carbon.AbsoluteTableIdentifier;
 import org.apache.carbondata.core.carbon.datastore.block.SegmentProperties;
 import org.apache.carbondata.core.carbon.metadata.datatype.DataType;
 import org.apache.carbondata.scan.expression.ColumnExpression;

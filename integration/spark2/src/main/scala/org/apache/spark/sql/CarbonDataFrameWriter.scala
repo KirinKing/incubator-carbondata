@@ -52,7 +52,6 @@ class CarbonDataFrameWriter(sqlContext: SQLContext, val dataFrame: DataFrame) {
     * Firstly, saving DataFrame to CSV files
     * Secondly, load CSV files
     * @param options
-    * @param sqlContext
     */
   private def loadTempCSV(options: CarbonOption): Unit = {
     // temporary solution: write to csv file, then load the csv into carbon

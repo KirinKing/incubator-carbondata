@@ -19,19 +19,14 @@ package org.apache.carbondata.spark.util
 
 import java.io.File
 
-import scala.collection.JavaConverters._
-
 import org.apache.spark.sql._
-import org.apache.spark.sql.hive.{CarbonMetaData, DictionaryMap}
 import org.apache.spark.sql.types._
 
 import org.apache.carbondata.common.logging.LogServiceFactory
 import org.apache.carbondata.core.carbon.metadata.datatype.{DataType => CarbonDataType}
-import org.apache.carbondata.core.carbon.metadata.encoder.Encoding
-import org.apache.carbondata.core.carbon.metadata.schema.table.CarbonTable
 import org.apache.carbondata.core.constants.CarbonCommonConstants
 import org.apache.carbondata.core.datastorage.store.impl.FileFactory
-import org.apache.carbondata.core.util.{CarbonProperties, CarbonUtil}
+import org.apache.carbondata.core.util.CarbonProperties
 
 object CarbonScalaUtil {
   def convertSparkToCarbonDataType(
@@ -91,25 +86,6 @@ object CarbonScalaUtil {
         DecimalType(DecimalType.MAX_PRECISION, scale)
       case _ =>
         currentDataType
-    }
-  }
-
-  case class TransformHolder(rdd: Any, mataData: CarbonMetaData)
-
-  object CarbonSparkUtil {
-
-    def createSparkMeta(carbonTable: CarbonTable): CarbonMetaData = {
-      val dimensionsAttr = carbonTable.getDimensionByTableName(carbonTable.getFactTableName)
-                           .asScala.map(x => x.getColName) // wf : may be problem
-      val measureAttr = carbonTable.getMeasureByTableName(carbonTable.getFactTableName)
-                        .asScala.map(x => x.getColName)
-      val dictionary =
-        carbonTable.getDimensionByTableName(carbonTable.getFactTableName).asScala.map { f =>
-        (f.getColName.toLowerCase,
-          f.hasEncoding(Encoding.DICTIONARY) && !f.hasEncoding(Encoding.DIRECT_DICTIONARY) &&
-          !CarbonUtil.hasComplexDataType(f.getDataType))
-      }
-      CarbonMetaData(dimensionsAttr, measureAttr, carbonTable, DictionaryMap(dictionary.toMap))
     }
   }
 

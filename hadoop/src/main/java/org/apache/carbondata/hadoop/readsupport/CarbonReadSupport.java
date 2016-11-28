@@ -18,7 +18,6 @@
  */
 package org.apache.carbondata.hadoop.readsupport;
 
-import org.apache.carbondata.core.carbon.AbsoluteTableIdentifier;
 import org.apache.carbondata.core.carbon.metadata.schema.table.column.CarbonColumn;
 
 /**

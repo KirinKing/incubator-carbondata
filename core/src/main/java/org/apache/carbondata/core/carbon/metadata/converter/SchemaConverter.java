@@ -58,12 +58,9 @@ public interface SchemaConverter {
 
   /**
    * @param wrapperTableInfo
-   * @param dbName
-   * @param tableName
    * @return
    */
-  org.apache.carbondata.format.TableInfo fromWrapperToExternalTableInfo(TableInfo wrapperTableInfo,
-      String dbName, String tableName);
+  org.apache.carbondata.format.TableInfo fromWrapperToExternalTableInfo(TableInfo wrapperTableInfo);
 
   /**
    * @param externalSchemaEvolutionEntry

@@ -21,7 +21,6 @@ package org.apache.carbondata.scan.filter;
 
 import java.util.List;
 
-import org.apache.carbondata.core.carbon.AbsoluteTableIdentifier;
 import org.apache.carbondata.core.carbon.datastore.DataRefNode;
 import org.apache.carbondata.core.carbon.datastore.block.AbstractIndex;
 import org.apache.carbondata.scan.executor.exception.QueryExecutionException;

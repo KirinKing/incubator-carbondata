@@ -22,7 +22,6 @@ package org.apache.carbondata.scan.filter.resolver;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.carbondata.core.carbon.AbsoluteTableIdentifier;
 import org.apache.carbondata.core.carbon.metadata.schema.table.column.CarbonMeasure;
 import org.apache.carbondata.core.constants.CarbonCommonConstants;
 import org.apache.carbondata.scan.expression.ColumnExpression;

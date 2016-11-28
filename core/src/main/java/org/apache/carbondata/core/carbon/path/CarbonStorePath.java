@@ -20,7 +20,6 @@ package org.apache.carbondata.core.carbon.path;
 
 import java.io.File;
 
-import org.apache.carbondata.core.carbon.AbsoluteTableIdentifier;
 import org.apache.carbondata.core.carbon.CarbonTableIdentifier;
 
 import org.apache.hadoop.fs.Path;
@@ -45,6 +44,15 @@ public class CarbonStorePath extends Path {
     CarbonTablePath carbonTablePath = new CarbonTablePath(tableIdentifier,
         storePath + File.separator + tableIdentifier.getDatabaseName() + File.separator
             + tableIdentifier.getTableName());
+
+    return carbonTablePath;
+  }
+
+  /**
+   * gets CarbonTablePath object to manage table paths
+   */
+  public static CarbonTablePathWF getCarbonTablePath(String tablePath) {
+    CarbonTablePathWF carbonTablePath = new CarbonTablePathWF(tablePath);
 
     return carbonTablePath;
   }

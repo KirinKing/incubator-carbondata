@@ -27,7 +27,6 @@ import java.util.Map;
 
 import org.apache.carbondata.common.logging.LogService;
 import org.apache.carbondata.common.logging.LogServiceFactory;
-import org.apache.carbondata.core.carbon.AbsoluteTableIdentifier;
 import org.apache.carbondata.core.carbon.CarbonTableIdentifier;
 import org.apache.carbondata.core.carbon.metadata.encoder.Encoding;
 import org.apache.carbondata.core.carbon.metadata.schema.table.column.CarbonDimension;
@@ -51,10 +50,7 @@ public class CarbonTable implements Serializable {
   private static final LogService LOGGER =
       LogServiceFactory.getLogService(CarbonTable.class.getName());
 
-  /**
-   * Absolute table identifier
-   */
-  private AbsoluteTableIdentifier absoluteTableIdentifier;
+  private CarbonTableIdentifier carbontableIdentifier;
 
   /**
    * TableName, Dimensions list
@@ -106,11 +102,9 @@ public class CarbonTable implements Serializable {
     this.tableUniqueName = tableInfo.getTableUniqueName();
     this.metaDataFilepath = tableInfo.getMetaDataFilepath();
     //setting unique table identifier
-    CarbonTableIdentifier carbontableIdentifier =
+    this.carbontableIdentifier =
         new CarbonTableIdentifier(tableInfo.getDatabaseName(),
             tableInfo.getFactTable().getTableName(), tableInfo.getFactTable().getTableId());
-    this.absoluteTableIdentifier =
-        new AbsoluteTableIdentifier(tableInfo.getStorePath(), carbontableIdentifier);
 
     fillDimensionsAndMeasuresForTables(tableInfo.getFactTable());
     List<TableSchema> aggregateTableList = tableInfo.getAggregateTableList();
@@ -250,14 +244,21 @@ public class CarbonTable implements Serializable {
    * @return the databaseName
    */
   public String getDatabaseName() {
-    return absoluteTableIdentifier.getCarbonTableIdentifier().getDatabaseName();
+    return carbontableIdentifier.getDatabaseName();
+  }
+
+  /**
+   * @return the table name
+   */
+  public String getTableName() {
+    return carbontableIdentifier.getTableName();
   }
 
   /**
    * @return the tabelName
    */
   public String getFactTableName() {
-    return absoluteTableIdentifier.getCarbonTableIdentifier().getTableName();
+    return carbontableIdentifier.getTableName();
   }
 
   /**
@@ -272,13 +273,6 @@ public class CarbonTable implements Serializable {
    */
   public String getMetaDataFilepath() {
     return metaDataFilepath;
-  }
-
-  /**
-   * @return storepath
-   */
-  public String getStorePath() {
-    return absoluteTableIdentifier.getStorePath();
   }
 
   /**
@@ -406,20 +400,6 @@ public class CarbonTable implements Serializable {
       }
     }
     return null;
-  }
-
-  /**
-   * @return absolute table identifier
-   */
-  public AbsoluteTableIdentifier getAbsoluteTableIdentifier() {
-    return absoluteTableIdentifier;
-  }
-
-  /**
-   * @return carbon table identifier
-   */
-  public CarbonTableIdentifier getCarbonTableIdentifier() {
-    return absoluteTableIdentifier.getCarbonTableIdentifier();
   }
 
   /**

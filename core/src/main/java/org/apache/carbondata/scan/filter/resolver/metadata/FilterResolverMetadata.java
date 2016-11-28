@@ -18,7 +18,6 @@
  */
 package org.apache.carbondata.scan.filter.resolver.metadata;
 
-import org.apache.carbondata.core.carbon.AbsoluteTableIdentifier;
 import org.apache.carbondata.scan.expression.ColumnExpression;
 import org.apache.carbondata.scan.expression.Expression;
 
