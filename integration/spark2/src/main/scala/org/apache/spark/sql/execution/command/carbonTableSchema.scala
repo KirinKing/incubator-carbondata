@@ -899,7 +899,7 @@ private[sql] case class DeleteLoadsById(
   }
 }
 
-private[sql] case class DeleteLoadsByLoadDate(
+case class DeleteLoadsByLoadDate(
     databaseNameOp: Option[String],
     tableName: String,
     dateField: String,
