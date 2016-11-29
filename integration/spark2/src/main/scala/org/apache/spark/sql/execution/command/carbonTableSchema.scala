@@ -57,6 +57,8 @@ import org.apache.carbondata.spark.exception.MalformedCarbonCommandException
 import org.apache.carbondata.spark.load._
 import org.apache.carbondata.spark.rdd.CarbonDataRDDFactory
 import org.apache.carbondata.spark.util.{CarbonScalaUtil, DataTypeConverterUtil, GlobalDictionaryUtil}
+import org.apache.spark.sql.catalyst.plans.logical.SubqueryAlias
+import org.apache.spark.sql.execution.datasources.LogicalRelation
 
 case class tableModel(
     ifNotExistsSet: Boolean,
@@ -823,38 +825,9 @@ case class CreateTable(cm: tableModel) extends RunnableCommand {
     if (tableInfo.getFactTable.getListOfColumns.size <= 0) {
       sys.error("No Dimensions found. Table should have at least one dimesnion !")
     }
-
-//    if (sparkSession.sqlContext.tableNames(dbName).exists(_.equalsIgnoreCase(tbName))) {
-//      if (!cm.ifNotExistsSet) {
-//        LOGGER.audit(
-//          s"Table creation with Database name [$dbName] and Table name [$tbName] failed. " +
-//          s"Table [$tbName] already exists under database [$dbName]")
-//        sys.error(s"Table [$tbName] already exists under database [$dbName]")
-//      }
-//    } else {
-      // Add Database to catalog and persist
-      val catalog = CarbonEnv.get.carbonMetastore
-      val tablePath = catalog.createTableFromThrift(tableInfo, dbName, tbName)(sparkSession)
-//      try {
-//        sparkSession.sql(
-//          s"""CREATE TABLE $dbName.$tbName USING carbondata""" +
-//          s""" OPTIONS (tableName "$dbName.$tbName", tablePath "$tablePath") """)
-//          .collect
-//      } catch {
-//        case e: Exception =>
-//          val identifier: TableIdentifier = TableIdentifier(tbName, Some(dbName))
-//          // call the drop table to delete the created table.
-//
-//          CarbonEnv.get.carbonMetastore
-//            .dropTable(catalog.storePath, identifier)(sparkSession)
-//
-//          LOGGER.audit(s"Table creation with Database name [$dbName] " +
-//                       s"and Table name [$tbName] failed")
-//          throw e
-//      }
-
+    val catalog = CarbonEnv.get.carbonMetastore
+    val tablePath = catalog.createTableFromThrift(tableInfo, dbName, tbName)(sparkSession)
       LOGGER.audit(s"Table created with Database name [$dbName] and Table name [$tbName]")
-//    }
 
     Seq.empty
   }
@@ -1004,20 +977,17 @@ case class LoadTable(
     if (isOverwriteExist) {
       sys.error(s"Overwrite is not supported for carbon table with $dbName.$tableName")
     }
-    if (null == CarbonMetadata.getInstance.getCarbonTable(dbName + "_" + tableName)) {
-      logError(s"Data loading failed. table not found: $dbName.$tableName")
-      LOGGER.audit(s"Data loading failed. table not found: $dbName.$tableName")
-      sys.error(s"Data loading failed. table not found: $dbName.$tableName")
+
+    val carbonRelation = sparkSession.sessionState.catalog.lookupRelation(identifier) match {
+      case SubqueryAlias(_, LogicalRelation(cr: CarbonDatasourceHadoopRelation, _, _)) =>
+        cr.carbonRelation
+      case LogicalRelation(cr: CarbonDatasourceHadoopRelation, _, _) => cr.carbonRelation
+      case _ => sys.error(s"Table $dbName.$tableName does not exist")
     }
 
-    val relation = CarbonEnv.get.carbonMetastore
-        .lookupRelation(Option(dbName), tableName)(sparkSession).asInstanceOf[CarbonRelation]
-    if (relation == null) {
-      sys.error(s"Table $dbName.$tableName does not exist")
-    }
     CarbonProperties.getInstance().addProperty("zookeeper.enable.lock", "false")
     val carbonLock = CarbonLockFactory
-      .getCarbonLockObj(relation.tableMeta.carbonTable.getAbsoluteTableIdentifier
+      .getCarbonLockObj(carbonRelation.tableMeta.carbonTable.getAbsoluteTableIdentifier
         .getCarbonTableIdentifier,
         LockUsage.METADATA_LOCK
       )
@@ -1035,9 +1005,9 @@ case class LoadTable(
           CarbonUtil.checkAndAppendHDFSUrl(factPathFromUser))
       }
       val carbonLoadModel = new CarbonLoadModel()
-      carbonLoadModel.setTableName(relation.tableMeta.carbonTableIdentifier.getTableName)
-      carbonLoadModel.setDatabaseName(relation.tableMeta.carbonTableIdentifier.getDatabaseName)
-      carbonLoadModel.setStorePath(relation.tableMeta.storePath)
+      carbonLoadModel.setTableName(carbonRelation.tableMeta.carbonTableIdentifier.getTableName)
+      carbonLoadModel.setDatabaseName(carbonRelation.tableMeta.carbonTableIdentifier.getDatabaseName)
+      carbonLoadModel.setStorePath(carbonRelation.tableMeta.storePath)
       if (dimFilesPath.isEmpty) {
         carbonLoadModel.setDimFolderPath(null)
       } else {
@@ -1045,16 +1015,16 @@ case class LoadTable(
         carbonLoadModel.setDimFolderPath(x.mkString(","))
       }
 
-      val table = relation.tableMeta.carbonTable
+      val table = carbonRelation.tableMeta.carbonTable
       carbonLoadModel.setAggTables(table.getAggregateTablesName.asScala.toArray)
       carbonLoadModel.setTableName(table.getFactTableName)
       val dataLoadSchema = new CarbonDataLoadSchema(table)
       // Need to fill dimension relation
       carbonLoadModel.setCarbonDataLoadSchema(dataLoadSchema)
 
-      var partitionLocation = relation.tableMeta.storePath + "/partition/" +
-                              relation.tableMeta.carbonTableIdentifier.getDatabaseName + "/" +
-                              relation.tableMeta.carbonTableIdentifier.getTableName + "/"
+      var partitionLocation = carbonRelation.tableMeta.storePath + "/partition/" +
+        carbonRelation.tableMeta.carbonTableIdentifier.getDatabaseName + "/" +
+        carbonRelation.tableMeta.carbonTableIdentifier.getTableName + "/"
 
 
       val columnar = sparkSession.conf.get("carbon.is.columnar.storage", "true").toBoolean
@@ -1135,11 +1105,11 @@ case class LoadTable(
         carbonLoadModel.setColDictFilePath(columnDict)
         carbonLoadModel.setDirectLoad(true)
         GlobalDictionaryUtil
-          .generateGlobalDictionary(sparkSession.sqlContext, carbonLoadModel, relation.tableMeta.storePath,
+          .generateGlobalDictionary(sparkSession.sqlContext, carbonLoadModel, carbonRelation.tableMeta.storePath,
             dataFrame)
         CarbonDataRDDFactory.loadCarbonData(sparkSession.sqlContext,
             carbonLoadModel,
-            relation.tableMeta.storePath,
+          carbonRelation.tableMeta.storePath,
             kettleHomePath,
             columnar,
             partitionStatus,

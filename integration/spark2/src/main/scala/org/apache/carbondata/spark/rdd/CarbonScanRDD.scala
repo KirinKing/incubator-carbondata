@@ -64,7 +64,7 @@ class CarbonScanRDD[V: ClassTag](
     @transient sc: SparkContext,
     columnProjection: CarbonProjection,
     filterExpression: Expression,
-    identifier: AbsoluteTableIdentifier,
+    tablePath: String,
     @transient carbonTable: CarbonTable)
   extends RDD[V](sc, Nil) {
 
@@ -124,7 +124,7 @@ class CarbonScanRDD[V: ClassTag](
         blockList.asScala.foreach { blocksPerTask =>
           val splits = blocksPerTask.asScala.map(_.asInstanceOf[CarbonInputSplit])
           if (blocksPerTask.size() != 0) {
-            val multiBlockSplit = new CarbonMultiBlockSplit(identifier, splits.asJava, node)
+            val multiBlockSplit = new CarbonMultiBlockSplit(splits.asJava, node)
             val partition = new CarbonSparkPartition(id, i, multiBlockSplit)
             result.add(partition)
             i += 1
@@ -217,7 +217,7 @@ class CarbonScanRDD[V: ClassTag](
 
   private def createInputFormat(conf: Configuration): CarbonInputFormat[V] = {
     val format = new CarbonInputFormat[V]
-    CarbonInputFormat.setTablePath(conf, identifier.getTablePath)
+    CarbonInputFormat.setTablePath(conf, tablePath)
     CarbonInputFormat.setFilterPredicates(conf, filterExpression)
     CarbonInputFormat.setColumnProjection(conf, columnProjection)
     format

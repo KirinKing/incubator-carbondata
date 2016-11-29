@@ -19,15 +19,20 @@ package org.apache.spark.sql
 
 import java.io.File
 
+import org.apache.carbondata.core.carbon.metadata.converter.ThriftWrapperSchemaConverterImpl
+import org.apache.carbondata.core.carbon.metadata.schema.table.TableInfo
 import org.apache.carbondata.core.constants.CarbonCommonConstants
+import org.apache.carbondata.core.datastorage.store.impl.FileFactory
+import org.apache.carbondata.core.writer.ThriftWriter
+import org.apache.carbondata.format.SchemaEvolutionEntry
 
 import scala.language.implicitConversions
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
 import org.apache.carbondata.spark.CarbonOption
-import org.apache.spark.sql.catalyst.analysis.NoSuchTableException
-import org.apache.spark.sql.execution.command.{CreateTable, Field}
+import org.apache.spark.sql.catalyst.TableIdentifier
+import org.apache.spark.sql.execution.command.{CreateTable, Field, TableNewProcessor}
 
 /**
  * Carbon relation provider compliant to data source api.
@@ -86,9 +91,12 @@ class CarbonSource extends CreatableRelationProvider
       dataSchema: StructType): BaseRelation = {
     CarbonEnv.init(sqlContext)
     addLateDecodeOptimization(sqlContext.sparkSession)
-    val path = createTableIfNotExists(sqlContext.sparkSession, parameters, dataSchema)
+    // todo: for now dbname and tablename is nessary, in future we should remove this limit
+    val dbName = parameters.getOrElse("dbName", "default")
+    val tableName = parameters.getOrElse("tableName", "default")
+    val path = createTableIfNotExists(sqlContext.sparkSession, parameters, dataSchema, dbName, tableName)
     CarbonDatasourceHadoopRelation(sqlContext.sparkSession, Array(path), parameters,
-      Option(dataSchema))
+      Option(dataSchema), dbName, tableName)
 
   }
 
@@ -97,44 +105,64 @@ class CarbonSource extends CreatableRelationProvider
     //ss.sessionState.experimentalMethods.extraOptimizations = Seq(new CarbonLateDecodeRule)
   }
 
-  private def createTableIfNotExists(sparkSession: SparkSession, parameters: Map[String, String],
-                                     dataSchema: StructType): String = {
-    val (dbName, tableName) = parameters.get("path") match {
-      case Some(path) =>
-        val p = path.split(File.separator)
-        ("default", p(p.length - 1))
-      case _ => throw new Exception("do not have dbname and tablename for carbon table")
-    }
-    try {
-      CarbonEnv.get.carbonMetastore.lookupRelation(Option(dbName), tableName)(sparkSession)
-      CarbonEnv.get.carbonMetastore.storePath + s"/$dbName/$tableName"
-    } catch {
-      case ex: NoSuchTableException =>
-        val fields = dataSchema.map { col =>
-          val column = col.name
-          val dataType = Option(col.dataType.toString)
-          val name = Option(col.name)
-          // This is to parse complex data types
-          val x = col.name + ' ' + col.dataType
-          val f: Field = Field(column, dataType, name, None, null)
-          // the data type of the decimal type will be like decimal(10,0)
-          // so checking the start of the string and taking the precision and scale.
-          // resetting the data type with decimal
-          if (f.dataType.getOrElse("").startsWith("decimal")) {
-            val (precision, scale) = TableCreator.getScaleAndPrecision(col.dataType.toString)
-            f.precision = precision
-            f.scale = scale
-            f.dataType = Some("decimal")
-          }
-          f
+  private def createTableIfNotExists(
+      sparkSession: SparkSession,
+      parameters: Map[String, String],
+      dataSchema: StructType,
+      dbName: String,
+      tableName: String): String = {
+    // actually there must be path here
+    val path = parameters.getOrElse("path","./default_carbon_path")
+    println(s"######### $path")
+    CarbonEnv.get.carbonMetastore.addTablePath(path, TableIdentifier(tableName, Option(dbName)))
+    if (!sparkSession.sessionState.catalog.tableExists(TableIdentifier(tableName, Option(dbName))))
+    {
+      val fields = dataSchema.map { col =>
+        val column = col.name
+        val dataType = Option(col.dataType.toString)
+        val name = Option(col.name)
+        // This is to parse complex data types
+        val x = col.name + ' ' + col.dataType
+        val f: Field = Field(column, dataType, name, None, null)
+        // the data type of the decimal type will be like decimal(10,0)
+        // so checking the start of the string and taking the precision and scale.
+        // resetting the data type with decimal
+        if (f.dataType.getOrElse("").startsWith("decimal")) {
+          val (precision, scale) = TableCreator.getScaleAndPrecision(col.dataType.toString)
+          f.precision = precision
+          f.scale = scale
+          f.dataType = Some("decimal")
         }
-        val map = scala.collection.mutable.Map[String, String]();
-        parameters.foreach { x => map.put(x._1, x._2) }
-        val cm = TableCreator.prepareTableModel(false, Option(dbName), tableName, fields, Nil, map)
-        CreateTable(cm).run(sparkSession)
-        CarbonEnv.get.carbonMetastore.storePath + s"/$dbName/$tableName"
-      case _ => throw new Exception("do not have dbname and tablename for carbon table")
-    }
-  }
+        f
+      }
+      val map = scala.collection.mutable.Map[String, String]();
+      parameters.foreach { x => map.put(x._1, x._2) }
+      val cm = TableCreator.prepareTableModel(false, Option(dbName), tableName, fields, Nil, map)
+      val tableInfo: TableInfo = TableNewProcessor(cm)
+      if (tableInfo.getFactTable.getListOfColumns.size <= 0) {
+        sys.error("No Dimensions found. Table should have at least one dimesnion !")
+      }
+      val schemaConverter = new ThriftWrapperSchemaConverterImpl
+      val thriftTableInfo = schemaConverter
+        .fromWrapperToExternalTableInfo(tableInfo, dbName, tableName)
+      val schemaEvolutionEntry = new SchemaEvolutionEntry(tableInfo.getLastUpdatedTime)
+      thriftTableInfo.getFact_table.getSchema_evolution.getSchema_evolution_history
+        .add(schemaEvolutionEntry)
 
+      val schemaMetadataDir = path + File.separator + "Metadata"
+      println(s"###### $schemaMetadataDir")
+      val fileType = FileFactory.getFileType(schemaMetadataDir)
+      if (!FileFactory.isFileExist(schemaMetadataDir, fileType)) {
+        println(s"####### begin write schema file")
+        FileFactory.mkdirs(schemaMetadataDir, fileType)
+        val schemaFilePath = schemaMetadataDir + File.separator + "schema"
+        println(s"####### $schemaFilePath")
+        val thriftWriter = new ThriftWriter(schemaFilePath, false)
+        thriftWriter.open()
+        thriftWriter.write(thriftTableInfo)
+        thriftWriter.close()
+      }
+    }
+    path
+  }
 }

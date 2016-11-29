@@ -18,6 +18,7 @@
  */
 package org.apache.carbondata.hadoop.util;
 
+import java.io.File;
 import java.io.IOException;
 
 import org.apache.carbondata.core.carbon.AbsoluteTableIdentifier;
@@ -68,6 +69,36 @@ public class SchemaReader {
       CarbonMetadata.getInstance().loadTableMetadata(wrapperTableInfo);
       return CarbonMetadata.getInstance().getCarbonTable(
           identifier.getCarbonTableIdentifier().getTableUniqueName());
+    } else {
+      return null;
+    }
+  }
+
+  public static CarbonTable readCarbonTable(String tablePath, String dbName, String tableName)
+          throws IOException {
+    String schemaFilePath = tablePath + File.separator + "Metadata" + File.separator + "schema";
+    if (FileFactory.isFileExist(schemaFilePath, FileFactory.FileType.LOCAL) ||
+            FileFactory.isFileExist(schemaFilePath, FileFactory.FileType.HDFS) ||
+            FileFactory.isFileExist(schemaFilePath, FileFactory.FileType.VIEWFS)) {
+
+      ThriftReader.TBaseCreator createTBase = new ThriftReader.TBaseCreator() {
+        public TBase create() {
+          return new org.apache.carbondata.format.TableInfo();
+        }
+      };
+      ThriftReader thriftReader =
+              new ThriftReader(schemaFilePath, createTBase);
+      thriftReader.open();
+      org.apache.carbondata.format.TableInfo tableInfo =
+              (org.apache.carbondata.format.TableInfo) thriftReader.read();
+      thriftReader.close();
+
+      SchemaConverter schemaConverter = new ThriftWrapperSchemaConverterImpl();
+      TableInfo wrapperTableInfo = schemaConverter
+              .fromExternalToWrapperTableInfo(tableInfo, dbName, tableName, tablePath);
+      wrapperTableInfo.setMetaDataFilepath(CarbonTablePath.getFolderContainingFile(schemaFilePath));
+      CarbonMetadata.getInstance().loadTableMetadata(wrapperTableInfo);
+      return CarbonMetadata.getInstance().getCarbonTable(wrapperTableInfo.getTableUniqueName());
     } else {
       return null;
     }

@@ -24,7 +24,7 @@ import org.apache.spark.util.TableLoader
 object CarbonExample {
 
   def main(args: Array[String]): Unit = {
-    val rootPath = "/Users/jackylk/code/incubator-carbondata"
+    val rootPath = "/Users/wangfei/code/incubator-carbondata"
     val spark = SparkSession
         .builder()
         .master("local")
@@ -34,6 +34,8 @@ object CarbonExample {
           s"$rootPath/examples/spark2/target/store")
         .getOrCreate()
     spark.sparkContext.setLogLevel("WARN")
+
+
 
     // Drop table
     spark.sql("DROP TABLE IF EXISTS carbon_table")
@@ -50,12 +52,14 @@ object CarbonExample {
          |    stringField string
          | )
          | USING org.apache.spark.sql.CarbonSource
+         | options (dbname 'default', tablename 'carbon_table')
        """.stripMargin)
+
 
     val prop = s"$rootPath/conf/dataload.properties.template"
     val tableName = "carbon_table"
-    val path = s"$rootPath/examples/spark2/src/main/resources/data.csv"
-    TableLoader.main(Array[String](prop, tableName, path))
+    val csvPath = s"$rootPath/examples/spark2/src/main/resources/data.csv"
+    TableLoader.main(Array[String](prop, tableName, csvPath))
 
 //    spark.sql(
 //      s"""
@@ -74,20 +78,20 @@ object CarbonExample {
 //         | LOAD DATA LOCAL INPATH '$csvPath'
 //         | INTO TABLE csv_table
 //       """.stripMargin)
-
+//
 //    spark.sql(
 //      s"""
 //         | INSERT INTO TABLE carbon_table
 //         | SELECT * FROM csv_table
 //       """.stripMargin)
 
-    // Perform a query
-//    spark.sql("""
-//           SELECT country, count(salary) AS amount
-//           FROM carbon_table
-//           WHERE country IN ('china','france')
-//           GROUP BY country
-//           """).show()
+//     Perform a query
+    spark.sql("""
+           SELECT country, count(salary) AS amount
+           FROM carbon_table
+           WHERE country IN ('china','france')
+           GROUP BY country
+           """).show()
 
     spark.sql("""
            SELECT sum(intField), stringField
@@ -96,8 +100,8 @@ object CarbonExample {
            """).show
 
     // Drop table
-    spark.sql("DROP TABLE IF EXISTS carbon_table")
-    spark.sql("DROP TABLE IF EXISTS csv_table")
+//    spark.sql("DROP TABLE IF EXISTS carbon_table")
+//    spark.sql("DROP TABLE IF EXISTS csv_table")
   }
 
 }

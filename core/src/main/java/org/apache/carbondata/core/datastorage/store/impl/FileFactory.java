@@ -122,7 +122,7 @@ public final class FileFactory {
   public static CarbonFile getCarbonFile(String path, FileType fileType) {
     switch (fileType) {
       case LOCAL:
-        return new LocalCarbonFile(path);
+        return new LocalCarbonFile(cleanScheme(path));
       case HDFS:
         return new HDFSCarbonFile(path);
       case ALLUXIO:
@@ -148,11 +148,11 @@ public final class FileFactory {
     switch (fileType) {
       case LOCAL:
         if (gzip) {
-          stream = new GZIPInputStream(new FileInputStream(path));
+          stream = new GZIPInputStream(new FileInputStream(cleanScheme(path)));
         } else if (bzip2) {
-          stream = new BZip2CompressorInputStream(new FileInputStream(path));
+          stream = new BZip2CompressorInputStream(new FileInputStream(cleanScheme(path)));
         } else {
-          stream = new FileInputStream(path);
+          stream = new FileInputStream(cleanScheme(path));
         }
         break;
       case HDFS:
@@ -218,7 +218,7 @@ public final class FileFactory {
     path = path.replace("\\", "/");
     switch (fileType) {
       case LOCAL:
-        return new DataOutputStream(new BufferedOutputStream(new FileOutputStream(path)));
+        return new DataOutputStream(new BufferedOutputStream(new FileOutputStream(cleanScheme(path))));
       case HDFS:
       case ALLUXIO:
       case VIEWFS:
@@ -236,7 +236,7 @@ public final class FileFactory {
     path = path.replace("\\", "/");
     switch (fileType) {
       case LOCAL:
-        return new DataOutputStream(new BufferedOutputStream(new FileOutputStream(path)));
+        return new DataOutputStream(new BufferedOutputStream(new FileOutputStream(cleanScheme(path))));
       case HDFS:
       case ALLUXIO:
       case VIEWFS:
@@ -249,33 +249,13 @@ public final class FileFactory {
     }
   }
 
-  public static DataOutputStream getDataOutputStream(String path, FileType fileType, int bufferSize)
-      throws IOException {
-    path = path.replace("\\", "/");
-    switch (fileType) {
-      case LOCAL:
-        return new DataOutputStream(
-            new BufferedOutputStream(new FileOutputStream(path), bufferSize));
-      case HDFS:
-      case ALLUXIO:
-      case VIEWFS:
-        Path pt = new Path(path);
-        FileSystem fs = pt.getFileSystem(configuration);
-        FSDataOutputStream stream = fs.create(pt, true, bufferSize);
-        return stream;
-      default:
-        return new DataOutputStream(
-            new BufferedOutputStream(new FileOutputStream(path), bufferSize));
-    }
-  }
-
   public static DataOutputStream getDataOutputStream(String path, FileType fileType, int bufferSize,
       boolean append) throws IOException {
     path = path.replace("\\", "/");
     switch (fileType) {
       case LOCAL:
         return new DataOutputStream(
-            new BufferedOutputStream(new FileOutputStream(path, append), bufferSize));
+            new BufferedOutputStream(new FileOutputStream(cleanScheme(path), append), bufferSize));
       case HDFS:
       case ALLUXIO:
       case VIEWFS:
@@ -306,7 +286,7 @@ public final class FileFactory {
     switch (fileType) {
       case LOCAL:
         return new DataOutputStream(
-            new BufferedOutputStream(new FileOutputStream(path), bufferSize));
+            new BufferedOutputStream(new FileOutputStream(cleanScheme(path)), bufferSize));
       case HDFS:
       case ALLUXIO:
       case VIEWFS:
@@ -346,7 +326,7 @@ public final class FileFactory {
 
       case LOCAL:
       default:
-        File defaultFile = new File(filePath);
+        File defaultFile = new File(cleanScheme(filePath));
 
         if (performFileCheck) {
           return defaultFile.exists() && defaultFile.isFile();
@@ -375,7 +355,7 @@ public final class FileFactory {
 
       case LOCAL:
       default:
-        File defaultFile = new File(filePath);
+        File defaultFile = new File(cleanScheme(filePath));
         return defaultFile.exists();
     }
   }
@@ -392,9 +372,14 @@ public final class FileFactory {
 
       case LOCAL:
       default:
-        File file = new File(filePath);
+        File file = new File(cleanScheme(filePath));
         return file.createNewFile();
     }
+  }
+
+
+  public static String cleanScheme(String filePath) {
+    return Path.getPathWithoutSchemeAndAuthority(new Path(filePath)).toString();
   }
 
   public static boolean mkdirs(String filePath, FileType fileType) throws IOException {
@@ -408,7 +393,7 @@ public final class FileFactory {
         return fs.mkdirs(path);
       case LOCAL:
       default:
-        File file = new File(filePath);
+        File file = new File(cleanScheme(filePath));
         return file.mkdirs();
     }
   }
@@ -426,7 +411,7 @@ public final class FileFactory {
     path = path.replace("\\", "/");
     switch (fileType) {
       case LOCAL:
-        return new DataOutputStream(new BufferedOutputStream(new FileOutputStream(path, true)));
+        return new DataOutputStream(new BufferedOutputStream(new FileOutputStream(cleanScheme(path), true)));
       case HDFS:
       case ALLUXIO:
       case VIEWFS:
@@ -463,7 +448,7 @@ public final class FileFactory {
         return false;
       case LOCAL:
       default:
-        File file = new File(filePath);
+        File file = new File(cleanScheme(filePath));
         return file.createNewFile();
     }
   }
@@ -513,7 +498,7 @@ public final class FileFactory {
         return fs.getContentSummary(path).getLength();
       case LOCAL:
       default:
-        File file = new File(filePath);
+        File file = new File(cleanScheme(filePath));
         return FileUtils.sizeOfDirectory(file);
     }
   }

@@ -22,6 +22,9 @@ import org.apache.carbondata.core.constants.CarbonCommonConstants
 import org.apache.carbondata.core.datastorage.store.filesystem.CarbonFile
 import org.apache.carbondata.core.datastorage.store.impl.FileFactory
 import org.apache.carbondata.processing.etl.DataLoadingException
+import org.apache.hadoop.fs.Path
+import org.apache.hadoop.mapred.JobConf
+import org.apache.spark.sql.SparkSession
 
 object FileUtils {
   /**
@@ -47,6 +50,21 @@ object FileUtils {
         stringBuild.append(path.replace('\\', '/')).append(CarbonCommonConstants.COMMA)
       }
     }
+  }
+
+
+
+  def createPathFromString(path: String, sparkSession: SparkSession): Path = {
+    if (path == null) {
+      throw new IllegalArgumentException("Output path is null")
+    }
+    val outputPath = new Path(path)
+    val conf = new JobConf(sparkSession.sparkContext.hadoopConfiguration)
+    val fs = outputPath.getFileSystem(conf)
+    if (fs == null) {
+      throw new IllegalArgumentException("Incorrectly formatted output path")
+    }
+    outputPath.makeQualified(fs.getUri, fs.getWorkingDirectory)
   }
 
   /**
