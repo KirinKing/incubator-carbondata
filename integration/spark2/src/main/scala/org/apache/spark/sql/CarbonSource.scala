@@ -106,6 +106,7 @@ class CarbonSource extends CreatableRelationProvider
       sparkSession: SparkSession,
       parameters: Map[String, String],
       dataSchema: StructType): String = {
+    // todo: for now dbname and tablename is nessary, in future we should remove this limit
     val dbName = parameters.getOrElse("dbName", "default")
     val tableName = parameters.getOrElse("tableName", "default")
     val path = parameters.getOrElse("path","./default_carbon_path")
