@@ -51,7 +51,6 @@ class NewCarbonDataLoadRDD[K, V](
     sc: SparkContext,
     result: DataLoadResult[K, V],
     carbonLoadModel: CarbonLoadModel,
-    partitioner: Partitioner,
     loadCount: Integer,
     blocksGroupBy: Array[(String, Array[BlockDetails])],
     isTableSplitPartition: Boolean)
@@ -74,11 +73,10 @@ class NewCarbonDataLoadRDD[K, V](
       var splits: Array[TableSplit] = null
 
       if (carbonLoadModel.isDirectLoad) {
-        splits = CarbonQueryUtil.getTableSplitsForDirectLoad(carbonLoadModel.getFactFilePath,
-          partitioner.nodeList, partitioner.partitionCount)
+        splits = CarbonQueryUtil.getTableSplitsForDirectLoad(carbonLoadModel.getFactFilePath)
       } else {
         splits = CarbonQueryUtil.getTableSplits(carbonLoadModel.getDatabaseName,
-          carbonLoadModel.getTableName, null, partitioner)
+          carbonLoadModel.getTableName, null)
       }
 
       splits.zipWithIndex.map { s =>

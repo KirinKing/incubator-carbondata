@@ -17,24 +17,31 @@
 
 package org.apache.spark.sql
 
-import org.apache.spark.sql.hive.{CarbonMetastoreCatalog, HiveContext}
+import org.apache.spark.sql.hive.CarbonMetastore
 
 /**
  * Carbon Environment for unified context
  */
-case class CarbonEnv(hiveContext: HiveContext, carbonCatalog: CarbonMetastoreCatalog)
+case class CarbonEnv(carbonMetastore: CarbonMetastore)
 
 object CarbonEnv {
-  val className = classOf[CarbonEnv].getCanonicalName
-  var carbonEnv: CarbonEnv = _
 
-  def getInstance(sqlContext: SQLContext): CarbonEnv = {
-    if (carbonEnv == null) {
-      carbonEnv =
-        CarbonEnv(sqlContext.asInstanceOf[CarbonContext],
-          sqlContext.asInstanceOf[CarbonContext].catalog)
+  @volatile private var carbonEnv: CarbonEnv = _
+
+  var initialized = false
+
+  def init(sqlContext: SQLContext): Unit = {
+    if (!initialized) {
+      val cc = sqlContext.asInstanceOf[CarbonContext]
+      val catalog = new CarbonMetastore(cc, cc.storePath, cc.hiveClientInterface, "")
+      carbonEnv = CarbonEnv(catalog)
+      initialized = true
     }
-    carbonEnv
+  }
+
+  def get: CarbonEnv = {
+    if (initialized) carbonEnv
+    else throw new RuntimeException("CarbonEnv not initialized")
   }
 }
 

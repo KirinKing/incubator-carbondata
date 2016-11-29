@@ -23,18 +23,15 @@ import java.io.File
 import org.apache.spark.sql.common.util.CarbonHiveContext.sql
 import org.apache.spark.sql.common.util.{CarbonHiveContext, QueryTest}
 import org.apache.spark.sql.{CarbonEnv, CarbonRelation}
+import org.scalatest.BeforeAndAfterAll
 
 import org.apache.carbondata.core.carbon.CarbonDataLoadSchema
 import org.apache.carbondata.core.constants.CarbonCommonConstants
-import org.scalatest.BeforeAndAfterAll
-
+import org.apache.carbondata.processing.constants.TableOptionConstant
 import org.apache.carbondata.processing.model.CarbonLoadModel
 
 /**
   * Test Case for org.apache.carbondata.integration.spark.util.GlobalDictionaryUtil
-  *
-  * @date: Apr 10, 2016 10:34:58 PM
-  * @See org.apache.carbondata.integration.spark.util.GlobalDictionaryUtil
   */
 class AllDictionaryTestCase extends QueryTest with BeforeAndAfterAll {
 
@@ -64,6 +61,8 @@ class AllDictionaryTestCase extends QueryTest with BeforeAndAfterAll {
     carbonLoadModel.setComplexDelimiterLevel1("\\$")
     carbonLoadModel.setComplexDelimiterLevel2("\\:")
     carbonLoadModel.setAllDictPath(allDictFilePath)
+    carbonLoadModel.setSerializationNullFormat(
+          TableOptionConstant.SERIALIZATION_NULL_FORMAT.getName + ",\\N")
     carbonLoadModel
   }
 
@@ -107,7 +106,7 @@ class AllDictionaryTestCase extends QueryTest with BeforeAndAfterAll {
   }
 
   def buildRelation() = {
-    val catalog = CarbonEnv.getInstance(CarbonHiveContext).carbonCatalog
+    val catalog = CarbonEnv.get.carbonMetastore
     sampleRelation = catalog.lookupRelation1(Option(CarbonCommonConstants.DATABASE_DEFAULT_NAME),
       "sample")(CarbonHiveContext).asInstanceOf[CarbonRelation]
     complexRelation = catalog.lookupRelation1(Option(CarbonCommonConstants.DATABASE_DEFAULT_NAME),
