@@ -49,8 +49,8 @@ public class DictionaryFactory implements DictionaryService {
    */
   @Override public CarbonDictionaryWriter getDictionaryWriter(
       CarbonTableIdentifier carbonTableIdentifier, ColumnIdentifier columnIdentifier,
-      String carbonStorePath) {
-    return new CarbonDictionaryWriterImpl(carbonStorePath, carbonTableIdentifier, columnIdentifier);
+      String carbonStorePath, boolean useSparkTablePath) {
+    return new CarbonDictionaryWriterImpl(carbonStorePath, carbonTableIdentifier, columnIdentifier, useSparkTablePath);
   }
 
   /**

@@ -560,8 +560,13 @@ class CarbonLateDecodeRule extends Rule[LogicalPlan] with PredicateHelper {
         case _ => newFields(i) = fields(i)
       }
     }
-    CarbonDatasourceHadoopRelation(relation.sparkSession,
-      relation.paths, relation.parameters, Option(StructType(newFields)))
+    CarbonDatasourceHadoopRelation(
+      relation.sparkSession,
+      relation.paths,
+      relation.parameters,
+      Option(StructType(newFields)),
+      relation.dbName,
+      relation.tableName)
   }
 
   private def updateProjection(plan: LogicalPlan): LogicalPlan = {

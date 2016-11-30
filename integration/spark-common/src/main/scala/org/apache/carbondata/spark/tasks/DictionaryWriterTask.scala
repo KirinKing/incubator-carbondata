@@ -38,6 +38,7 @@ import org.apache.carbondata.spark.rdd.DictionaryLoadModel
 class DictionaryWriterTask(valuesBuffer: mutable.HashSet[String],
     dictionary: Dictionary,
     model: DictionaryLoadModel, columnIndex: Int,
+    useSparkTablePath: Boolean = false,
     var writer: CarbonDictionaryWriter = null) {
 
   /**
@@ -52,7 +53,8 @@ class DictionaryWriterTask(valuesBuffer: mutable.HashSet[String],
     writer = dictService.getDictionaryWriter(
       model.table,
       model.columnIdentifier(columnIndex),
-      model.hdfsLocation)
+      model.hdfsLocation,
+      useSparkTablePath)
     val distinctValues: java.util.List[String] = new java.util.ArrayList()
 
     try {

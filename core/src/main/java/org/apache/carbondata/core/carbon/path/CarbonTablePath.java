@@ -52,6 +52,22 @@ public class CarbonTablePath extends Path {
   protected String tablePath;
   protected CarbonTableIdentifier carbonTableIdentifier;
 
+  public static String getMetadataDir(String tblPath) {
+    return tblPath + File.separator + METADATA_DIR;
+  }
+
+  /**
+   * @param columnId unique column identifier
+   * @return absolute path of dictionary file
+   */
+  public static String getDictionaryFilePath(String tblPath, String columnId) {
+    return getMetadataDir(tblPath) + File.separator + getDictionaryFileName(columnId);
+  }
+
+  public static String getDictionaryMetaFilePath(String tblPath, String columnId) {
+    return getMetadataDir(tblPath) + File.separator + columnId + DICTIONARY_META_EXT;
+  }
+
   /**
    *
    * @param carbonTableIdentifier

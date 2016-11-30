@@ -25,17 +25,16 @@ import java.util.regex.Pattern
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 import scala.util.control.Breaks.{break, breakable}
-
 import au.com.bytecode.opencsv.CSVReader
 import org.apache.commons.lang3.{ArrayUtils, StringUtils}
 import org.apache.spark._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
-
 import org.apache.carbondata.common.factory.CarbonCommonFactory
 import org.apache.carbondata.common.logging.LogServiceFactory
 import org.apache.carbondata.core.carbon.{CarbonTableIdentifier, ColumnIdentifier}
 import org.apache.carbondata.core.carbon.metadata.schema.table.column.CarbonDimension
+import org.apache.carbondata.core.carbon.path.CarbonTablePath
 import org.apache.carbondata.core.constants.CarbonCommonConstants
 import org.apache.carbondata.core.datastorage.store.impl.FileFactory
 import org.apache.carbondata.core.util.{CarbonProperties, CarbonTimeStatisticsFactory, CarbonUtil}
@@ -290,22 +289,27 @@ class CarbonBlockDistinctValuesCombineRDD(
  */
 class CarbonGlobalDictionaryGenerateRDD(
     prev: RDD[(Int, ColumnDistinctValues)],
-    model: DictionaryLoadModel)
+    model: DictionaryLoadModel,
+    useTablePath: Boolean = false)
   extends RDD[(Int, String, Boolean)](prev) {
 
   override def getPartitions: Array[Partition] = firstParent[(Int, ColumnDistinctValues)].partitions
 
   override def compute(split: Partition, context: TaskContext): Iterator[(Int, String, Boolean)] = {
     val LOGGER = LogServiceFactory.getLogService(this.getClass.getName)
-    var status = CarbonCommonConstants.STORE_LOADSTATUS_SUCCESS
+    val status = CarbonCommonConstants.STORE_LOADSTATUS_SUCCESS
     var isHighCardinalityColumn = false
     val iter = new Iterator[(Int, String, Boolean)] {
       var dictionaryForDistinctValueLookUp:
       org.apache.carbondata.core.cache.dictionary.Dictionary = _
       var dictionaryForSortIndexWriting: org.apache.carbondata.core.cache.dictionary.Dictionary = _
       var dictionaryForDistinctValueLookUpCleared: Boolean = false
-      val pathService = CarbonCommonFactory.getPathService
-      val carbonTablePath = pathService.getCarbonTablePath(model.hdfsLocation, model.table)
+      val carbonTablePath = if (useTablePath) {
+         CarbonTablePath.getMetadataDir(model.hdfsLocation)
+      } else {
+        val pathService = CarbonCommonFactory.getPathService
+        pathService.getCarbonTablePath(model.hdfsLocation, model.table).getPath
+      }
       if (StringUtils.isNotBlank(model.hdfsTempLocation )) {
          CarbonProperties.getInstance.addProperty(CarbonCommonConstants.HDFS_TEMP_LOCATION,
            model.hdfsTempLocation)
@@ -319,7 +323,7 @@ class CarbonGlobalDictionaryGenerateRDD(
           model.zooKeeperUrl)
       }
       val dictLock = CarbonLockFactory
-        .getCarbonLockObj(carbonTablePath.getRelativeDictionaryDirectory,
+        .getCarbonLockObj(carbonTablePath,
           model.columnIdentifier(split.index).getColumnId + LockUsage.LOCK)
       var isDictionaryLocked = false
       // generate distinct value list
@@ -383,7 +387,7 @@ class CarbonGlobalDictionaryGenerateRDD(
           val dictWriteTask = new DictionaryWriterTask(valuesBuffer,
             dictionaryForDistinctValueLookUp,
             model,
-            split.index)
+            split.index, useTablePath)
           // execute dictionary writer task to get distinct values
           val distinctValues = dictWriteTask.execute()
           val dictWriteTime = System.currentTimeMillis() - t3

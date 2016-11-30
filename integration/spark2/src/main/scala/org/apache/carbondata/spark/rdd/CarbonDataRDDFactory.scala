@@ -724,10 +724,6 @@ object CarbonDataRDDFactory {
       // reading the start time of data load.
       val loadStartTime = CarbonLoaderUtil.readCurrentTime()
       carbonLoadModel.setFactTimeStamp(loadStartTime)
-      val tableCreationTime = CarbonEnv.get.carbonMetastore
-        .getTableCreationTime(carbonLoadModel.getDatabaseName, carbonLoadModel.getTableName)
-      val schemaLastUpdatedTime = CarbonEnv.get.carbonMetastore
-        .getSchemaLastUpdatedTime(carbonLoadModel.getDatabaseName, carbonLoadModel.getTableName)
 
       // get partition way from configuration
       // val isTableSplitPartition = CarbonProperties.getInstance().getProperty(
@@ -868,8 +864,6 @@ object CarbonDataRDDFactory {
             kettleHomePath,
             columinar,
             currentLoadCount,
-            tableCreationTime,
-            schemaLastUpdatedTime,
             blocksGroupBy,
             isTableSplitPartition
           ).collect()
@@ -900,8 +894,6 @@ object CarbonDataRDDFactory {
             kettleHomePath,
             columinar,
             currentLoadCount,
-            tableCreationTime,
-            schemaLastUpdatedTime,
             newRdd).collect()
         } catch {
           case ex: Exception =>

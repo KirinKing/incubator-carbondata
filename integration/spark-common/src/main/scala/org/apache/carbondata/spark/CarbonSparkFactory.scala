@@ -29,15 +29,21 @@ trait ColumnValidator {
  * Dictionary related helper service
  */
 trait DictionaryDetailService {
-  def getDictionaryDetail(dictFolderPath: String, primDimensions: Array[CarbonDimension],
-      table: CarbonTableIdentifier, storePath: String): DictionaryDetail
+  def getDictionaryDetail(
+      dictFolderPath: String,
+      primDimensions: Array[CarbonDimension],
+      table: CarbonTableIdentifier,
+      storePath: String,
+      useSparkTablePath: Boolean): DictionaryDetail
 }
 
 /**
  * Dictionary related detail
  */
-case class DictionaryDetail(columnIdentifiers: Array[ColumnIdentifier],
-    dictFilePaths: Array[String], dictFileExists: Array[Boolean])
+case class DictionaryDetail(
+    columnIdentifiers: Array[ColumnIdentifier],
+    dictFilePaths: Array[String],
+    dictFileExists: Array[Boolean])
 
 /**
  * Factory class
@@ -48,12 +54,5 @@ object CarbonSparkFactory {
     */
   def getCarbonColumnValidator(): ColumnValidator = {
     new CarbonColumnValidator
-  }
-
-  /**
-   * @return dictionary helper
-   */
-  def getDictionaryDetailService(): DictionaryDetailService = {
-    new DictionaryDetailHelper
   }
 }

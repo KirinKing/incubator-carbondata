@@ -172,8 +172,6 @@ class SparkPartitionLoader(model: CarbonLoadModel,
  * @param kettleHomePath        The kettle home path
  * @param columinar             whether it is columinar
  * @param loadCount             Current load count
- * @param tableCreationTime     Time of creating table
- * @param schemaLastUpdatedTime Time of last schema update
  * @param blocksGroupBy         Blocks Array which is group by partition or host
  * @param isTableSplitPartition Whether using table split partition
  * @tparam K Class of the key associated with the Result.
@@ -187,8 +185,6 @@ class DataFileLoaderRDD[K, V](
     kettleHomePath: String,
     columinar: Boolean,
     loadCount: Integer,
-    tableCreationTime: Long,
-    schemaLastUpdatedTime: Long,
     blocksGroupBy: Array[(String, Array[BlockDetails])],
     isTableSplitPartition: Boolean) extends RDD[(K, V)](sc, Nil) {
 
@@ -475,8 +471,6 @@ class DataFileLoaderRDD[K, V](
  * @param kettleHomePath
  * @param columinar
  * @param loadCount
- * @param tableCreationTime
- * @param schemaLastUpdatedTime
  * @param prev
  * @tparam K
  * @tparam V
@@ -489,8 +483,6 @@ class DataFrameLoaderRDD[K, V](
     kettleHomePath: String,
     columinar: Boolean,
     loadCount: Integer,
-    tableCreationTime: Long,
-    schemaLastUpdatedTime: Long,
     prev: DataLoadCoalescedRDD[Row]) extends RDD[(K, V)](prev) {
 
   sc.setLocalProperty("spark.scheduler.pool", "DDL")

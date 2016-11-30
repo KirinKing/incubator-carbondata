@@ -395,7 +395,7 @@ case class CreateTable(cm: TableModel) extends RunnableCommand {
     val dbName = cm.databaseName
     LOGGER.audit(s"Creating Table with Database name [$dbName] and Table name [$tbName]")
 
-    val tableInfo: TableInfo = TableNewProcessor(cm, sparkSession.sqlContext)
+    val tableInfo: TableInfo = TableNewProcessor(cm)
 
     if (tableInfo.getFactTable.getListOfColumns.size <= 0) {
       sys.error("No Dimensions found. Table should have at least one dimesnion !")
@@ -680,8 +680,12 @@ case class LoadTable(
         carbonLoadModel.setColDictFilePath(columnDict)
         carbonLoadModel.setDirectLoad(true)
         GlobalDictionaryUtil
-          .generateGlobalDictionary(sparkSession.sqlContext, carbonLoadModel, carbonRelation.tableMeta.storePath,
-            dataFrame)
+          .generateGlobalDictionaryFromTablePath(
+            sparkSession.sqlContext,
+            carbonLoadModel,
+            carbonRelation.tableMeta.storePath,
+            dataFrame,
+            true)
         CarbonDataRDDFactory.loadCarbonData(sparkSession.sqlContext,
             carbonLoadModel,
           carbonRelation.tableMeta.storePath,

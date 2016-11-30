@@ -18,30 +18,29 @@
 package org.apache.carbondata.spark
 
 import scala.collection.mutable.HashMap
-
 import org.apache.carbondata.core.carbon.{CarbonTableIdentifier, ColumnIdentifier}
 import org.apache.carbondata.core.carbon.metadata.schema.table.column.CarbonDimension
 import org.apache.carbondata.core.carbon.path.{CarbonStorePath, CarbonTablePath}
 import org.apache.carbondata.core.datastorage.store.filesystem.{CarbonFile, CarbonFileFilter}
 import org.apache.carbondata.core.datastorage.store.impl.FileFactory
+import org.apache.carbondata.spark.filefilter.DictCarbonFileFilter
 
-class DictionaryDetailHelper extends DictionaryDetailService {
-  def getDictionaryDetail(dictfolderPath: String, primDimensions: Array[CarbonDimension],
-      table: CarbonTableIdentifier, storePath: String): DictionaryDetail = {
-    val carbonTablePath = CarbonStorePath.getCarbonTablePath(storePath, table)
+object DictionaryDetailHelper {
+  def getDictionaryDetail(
+      dictFolderPath: String,
+      primDimensions: Array[CarbonDimension],
+      table: CarbonTableIdentifier,
+      storePath: String,
+      useSparkTablePath: Boolean): DictionaryDetail = {
     val dictFilePaths = new Array[String](primDimensions.length)
     val dictFileExists = new Array[Boolean](primDimensions.length)
     val columnIdentifier = new Array[ColumnIdentifier](primDimensions.length)
 
-    val fileType = FileFactory.getFileType(dictfolderPath)
+    val fileType = FileFactory.getFileType(dictFolderPath)
     // Metadata folder
-    val metadataDirectory = FileFactory.getCarbonFile(dictfolderPath, fileType)
+    val metadataDirectory = FileFactory.getCarbonFile(dictFolderPath, fileType)
     // need list all dictionary file paths with exists flag
-    val carbonFiles = metadataDirectory.listFiles(new CarbonFileFilter {
-      @Override def accept(pathname: CarbonFile): Boolean = {
-        CarbonTablePath.isDictionaryFile(pathname)
-      }
-    })
+    val carbonFiles = metadataDirectory.listFiles(new DictCarbonFileFilter())
     // 2 put dictionary file names to fileNamesMap
     val fileNamesMap = new HashMap[String, Int]
     for (i <- 0 until carbonFiles.length) {
@@ -50,12 +49,22 @@ class DictionaryDetailHelper extends DictionaryDetailService {
     // 3 lookup fileNamesMap, if file name is in fileNamesMap, file is exists, or not.
     primDimensions.zipWithIndex.foreach { f =>
       columnIdentifier(f._2) = f._1.getColumnIdentifier
-      dictFilePaths(f._2) = carbonTablePath.getDictionaryFilePath(f._1.getColumnId)
-      dictFileExists(f._2) =
-        fileNamesMap.get(CarbonTablePath.getDictionaryFileName(f._1.getColumnId)) match {
-          case None => false
-          case Some(_) => true
-        }
+      if (useSparkTablePath) {
+        dictFilePaths(f._2) = CarbonTablePath.getDictionaryFilePath(storePath, f._1.getColumnId)
+        dictFileExists(f._2) =
+          fileNamesMap.get(CarbonTablePath.getDictionaryFileName(f._1.getColumnId)) match {
+            case None => false
+            case Some(_) => true
+          }
+      } else {
+        val carbonTablePath = CarbonStorePath.getCarbonTablePath(storePath, table)
+        dictFilePaths(f._2) = carbonTablePath.getDictionaryFilePath(f._1.getColumnId)
+        dictFileExists(f._2) =
+          fileNamesMap.get(CarbonTablePath.getDictionaryFileName(f._1.getColumnId)) match {
+            case None => false
+            case Some(_) => true
+          }
+      }
     }
 
     DictionaryDetail(columnIdentifier, dictFilePaths, dictFileExists)

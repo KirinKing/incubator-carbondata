@@ -125,6 +125,8 @@ public class CarbonDictionaryWriterImpl implements CarbonDictionaryWriter {
    */
   private boolean isFirstTime;
 
+  private boolean useSparkTablePath;
+
   private static final Charset defaultCharset = Charset.forName(
       CarbonCommonConstants.DEFAULT_CHARSET);
 
@@ -135,12 +137,33 @@ public class CarbonDictionaryWriterImpl implements CarbonDictionaryWriter {
    * @param carbonTableIdentifier table identifier which will give table name and database name
    * @param columnIdentifier      column unique identifier
    */
-  public CarbonDictionaryWriterImpl(String storePath,
+  public CarbonDictionaryWriterImpl(
+      String storePath,
       CarbonTableIdentifier carbonTableIdentifier, ColumnIdentifier columnIdentifier) {
     this.carbonTableIdentifier = carbonTableIdentifier;
     this.columnIdentifier = columnIdentifier;
     this.storePath = storePath;
     this.isFirstTime = true;
+    this.useSparkTablePath = false;
+  }
+
+  /**
+   * Constructor
+   *
+   * @param storePath             carbon dictionary data store path
+   * @param carbonTableIdentifier table identifier which will give table name and database name
+   * @param columnIdentifier      column unique identifier
+   */
+  public CarbonDictionaryWriterImpl(
+      String storePath,
+      CarbonTableIdentifier carbonTableIdentifier,
+      ColumnIdentifier columnIdentifier,
+      boolean useSparkTablePath) {
+    this.carbonTableIdentifier = carbonTableIdentifier;
+    this.columnIdentifier = columnIdentifier;
+    this.storePath = storePath;
+    this.isFirstTime = true;
+    this.useSparkTablePath = useSparkTablePath;
   }
 
   /**
@@ -252,11 +275,18 @@ public class CarbonDictionaryWriterImpl implements CarbonDictionaryWriter {
 
   protected void initPaths() {
     PathService pathService = CarbonCommonFactory.getPathService();
-    CarbonTablePath carbonTablePath = pathService.getCarbonTablePath(
-            this.storePath, carbonTableIdentifier);
-    this.dictionaryFilePath = carbonTablePath.getDictionaryFilePath(columnIdentifier.getColumnId());
-    this.dictionaryMetaFilePath =
-        carbonTablePath.getDictionaryMetaFilePath(columnIdentifier.getColumnId());
+    if (useSparkTablePath) {
+      this.dictionaryFilePath =
+              CarbonTablePath.getDictionaryFilePath(storePath, columnIdentifier.getColumnId());
+      this.dictionaryMetaFilePath =
+              CarbonTablePath.getDictionaryMetaFilePath(storePath, columnIdentifier.getColumnId());
+    } else {
+      CarbonTablePath carbonTablePath = pathService.getCarbonTablePath(
+              this.storePath, carbonTableIdentifier);
+      this.dictionaryFilePath = carbonTablePath.getDictionaryFilePath(columnIdentifier.getColumnId());
+      this.dictionaryMetaFilePath =
+              carbonTablePath.getDictionaryMetaFilePath(columnIdentifier.getColumnId());
+    }
   }
 
   /**

@@ -245,7 +245,7 @@ class CarbonMetastore(conf: RuntimeConfig, val storePath: String) extends Loggin
         val carbonTable =
           org.apache.carbondata.core.carbon.metadata.CarbonMetadata.getInstance()
             .getCarbonTable(tableUniqueName)
-        metaDataBuffer += TableMeta(
+        metaDataBuffer += new TableMeta(
           carbonTable.getCarbonTableIdentifier,
           storePath,
           carbonTable)

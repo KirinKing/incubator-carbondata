@@ -52,7 +52,7 @@ case class CarbonDatasourceHadoopRelation(
       carbonTable.getDatabaseName,
       carbonTable.getFactTableName,
       CarbonSparkUtil.createSparkMeta(carbonTable),
-      TableMeta(
+      new TableMeta(
         carbonIdentifier,
         paths.head,
         carbonTable

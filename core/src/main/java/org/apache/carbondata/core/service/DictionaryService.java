@@ -40,7 +40,7 @@ public interface DictionaryService {
    * @return
    */
   public CarbonDictionaryWriter getDictionaryWriter(CarbonTableIdentifier carbonTableIdentifier,
-      ColumnIdentifier columnIdentifier, String carbonStorePath);
+      ColumnIdentifier columnIdentifier, String carbonStorePath, boolean useSparkTablePath);
 
   /**
    * get dictionary sort index writer
