@@ -51,7 +51,7 @@ public class CarbonMultiBlockSplit extends InputSplit implements Writable {
     location = null;
   }
 
-  public CarbonMultiBlockSplit(AbsoluteTableIdentifier identifier, List<CarbonInputSplit> splitList,
+  public CarbonMultiBlockSplit(List<CarbonInputSplit> splitList,
       String location) throws IOException {
     this.splitList = splitList;
     this.location = location;

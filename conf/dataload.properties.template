@@ -23,7 +23,7 @@ carbon.storelocation=/Users/jackylk/code/incubator-carbondata/examples/spark2/ta
 #false: use new flow to load data
 use_kettle=true
 
-carbon.kettle.home=/Users/jackylk/code/incubator-carbondata/processing/carbonplugins
+carbon.kettle.home=/Users/wangfei/code/incubator-carbondata/processing/carbonplugins
 
 #csv delimiter character
 delimiter=,

@@ -24,7 +24,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.hive.CarbonRelation
 import org.apache.spark.sql.sources.{BaseRelation, Filter, PrunedFilteredScan}
 import org.apache.spark.sql.types.StructType
-import org.apache.carbondata.core.carbon.AbsoluteTableIdentifier
+import org.apache.carbondata.core.carbon.CarbonTableIdentifier
 import org.apache.carbondata.hadoop.{CarbonInputFormat, CarbonProjection}
 import org.apache.carbondata.hadoop.util.SchemaReader
 import org.apache.carbondata.integration.spark.merger.TableMeta
@@ -39,17 +39,24 @@ case class CarbonDatasourceHadoopRelation(
     sparkSession: SparkSession,
     paths: Array[String],
     parameters: Map[String, String],
-    tableSchema: Option[StructType])
+    tableSchema: Option[StructType],
+    dbName: String,
+    tableName: String)
   extends BaseRelation with PrunedFilteredScan {
 
-  lazy val absIdentifier = AbsoluteTableIdentifier.fromTablePath(paths.head)
-  lazy val carbonTable = SchemaReader.readCarbonTableFromStore(absIdentifier)
+  lazy val carbonTable = SchemaReader.readCarbonTable(paths.head, dbName, tableName)
   lazy val carbonRelation: CarbonRelation = {
+    val carbonIdentifier =
+      new CarbonTableIdentifier(dbName, tableName, s"${System.currentTimeMillis}")
     CarbonRelation(
       carbonTable.getDatabaseName,
       carbonTable.getFactTableName,
       CarbonSparkUtil.createSparkMeta(carbonTable),
-      new TableMeta(absIdentifier.getCarbonTableIdentifier, paths.head, carbonTable),
+      TableMeta(
+        carbonIdentifier,
+        paths.head,
+        carbonTable
+      ),
       None
     )
   }
@@ -71,7 +78,7 @@ case class CarbonDatasourceHadoopRelation(
     CarbonInputFormat.setCarbonReadSupport(classOf[SparkRowReadSupportImpl], conf)
 
     new CarbonScanRDD[Row](sqlContext.sparkContext, projection, filterExpression.orNull,
-      absIdentifier, carbonTable)
+      paths.head, carbonTable)
   }
 
 }

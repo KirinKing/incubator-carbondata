@@ -44,6 +44,7 @@ public class LocalCarbonFile implements CarbonFile {
     file = new File(pathWithoutSchemeAndAuthority.toString());
   }
 
+
   public LocalCarbonFile(File file) {
     this.file = file;
   }

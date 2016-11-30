@@ -113,6 +113,12 @@ class CarbonMetastore(conf: RuntimeConfig, val storePath: String) extends Loggin
     s"query_${nextId.getAndIncrement()}"
   }
 
+  val tablesPath = new scala.collection.mutable.HashMap[String, TableIdentifier]()
+
+  def addTablePath(path: String, tableIdentifier: TableIdentifier): Unit = {
+    tablesPath.+=((path, tableIdentifier))
+  }
+
   val metadata = loadMetadata(storePath, nextQueryId)
 
   def getTableCreationTime(databaseName: String, tableName: String): Long = {
@@ -188,17 +194,67 @@ class CarbonMetastore(conf: RuntimeConfig, val storePath: String) extends Loggin
       }
     }
 
-    if (metadataPath == null) {
-      return null
+    if (tablesPath.size == 0) {
+      return MetaData(new ArrayBuffer[TableMeta]())
     }
-    val fileType = FileFactory.getFileType(metadataPath)
+    val fileType = FileFactory.getFileType(tablesPath.head._1)
     val metaDataBuffer = new ArrayBuffer[TableMeta]
-    fillMetaData(metadataPath, fileType, metaDataBuffer)
+    tablesPath.toSeq.map { case (tablePath, identifier) =>
+      fillMetaDataWF(metadataPath, identifier, fileType, metaDataBuffer)
+    }
     updateSchemasUpdatedTime(readSchemaFileSystemTime("", ""))
-    statistic.addStatistics(QueryStatisticsConstants.LOAD_META,
+    statistic.addStatistics(
+      QueryStatisticsConstants.LOAD_META,
       System.currentTimeMillis())
     recorder.recordStatisticsForDriver(statistic, queryId)
     MetaData(metaDataBuffer)
+  }
+
+
+  private def fillMetaDataWF(
+      tablePath: String,
+      tableIdentifier: TableIdentifier,
+      fileType: FileType,
+      metaDataBuffer: ArrayBuffer[TableMeta]): Unit = {
+    try {
+      if (FileFactory.isFileExist(tablePath, fileType)) {
+        val (tableName, dbName) = (tableIdentifier.table, tableIdentifier.database.getOrElse("default"))
+        val carbonTableIdentifier = new CarbonTableIdentifier(dbName, tableName, UUID.randomUUID().toString)
+        val carbonTablePath = tablePath
+        val schemaFilePath = tablePath + File.separator + "Metadata" +  File.separator + "schema";
+        val tableUniqueName = dbName + "_" + tableName
+
+
+        val createTBase = new ThriftReader.TBaseCreator() {
+          override def create(): org.apache.thrift.TBase[TableInfo, TableInfo._Fields] = {
+            new TableInfo()
+          }
+        }
+        val thriftReader = new ThriftReader(schemaFilePath, createTBase)
+        thriftReader.open()
+        val tableInfo: TableInfo = thriftReader.read().asInstanceOf[TableInfo]
+        thriftReader.close()
+
+        val schemaConverter = new ThriftWrapperSchemaConverterImpl
+        val wrapperTableInfo = schemaConverter
+          .fromExternalToWrapperTableInfo(tableInfo, dbName, tableName, tablePath)
+        wrapperTableInfo.setStorePath(storePath)
+        wrapperTableInfo
+          .setMetaDataFilepath(CarbonTablePath.getFolderContainingFile(schemaFilePath))
+        CarbonMetadata.getInstance().loadTableMetadata(wrapperTableInfo)
+        val carbonTable =
+          org.apache.carbondata.core.carbon.metadata.CarbonMetadata.getInstance()
+            .getCarbonTable(tableUniqueName)
+        metaDataBuffer += TableMeta(
+          carbonTable.getCarbonTableIdentifier,
+          storePath,
+          carbonTable)
+      }
+    } catch {
+      case s: java.io.FileNotFoundException =>
+        // Create folders and files.
+        FileFactory.mkdirs(tablePath, fileType)
+    }
   }
 
   private def fillMetaData(basePath: String, fileType: FileType,

@@ -107,12 +107,12 @@ case class CompactionCallableModel(storePath: String,
     compactionType: CompactionType)
 
 object TableNewProcessor {
-  def apply(cm: TableModel, sqlContext: SQLContext): TableInfo = {
-    new TableNewProcessor(cm, sqlContext).process
+  def apply(cm: TableModel): TableInfo = {
+    new TableNewProcessor(cm).process
   }
 }
 
-class TableNewProcessor(cm: TableModel, sqlContext: SQLContext) {
+class TableNewProcessor(cm: TableModel) {
 
   var index = 0
   var rowGroup = 0
