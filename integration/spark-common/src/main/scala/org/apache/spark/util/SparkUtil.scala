@@ -30,6 +30,10 @@ import org.apache.carbondata.core.load.BlockDetails
  */
 object SparkUtil {
 
+  def main(args: Array[String]): Unit = {
+    println("xx")
+  }
+
   def setTaskContext(context: TaskContext): Unit = {
     val localThreadContext = TaskContext.get()
     if (localThreadContext == null) {

@@ -33,13 +33,6 @@
     <dev.path>${basedir}/../dev</dev.path>
   </properties>
 
-  <repositories>
-    <repository>
-      <id>pentaho-releases</id>
-      <url>http://repository.pentaho.org/artifactory/repo/</url>
-    </repository>
-  </repositories>
-
   <dependencies>
     <dependency>
       <groupId>org.apache.carbondata</groupId>
@@ -65,6 +58,11 @@
       <groupId>pentaho-kettle</groupId>
       <artifactId>kettle-db</artifactId>
       <version>${kettle.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.thrift</groupId>
+      <artifactId>libthrift</artifactId>
+      <version>0.9.3</version>
     </dependency>
     <dependency>
       <groupId>com.google.code.gson</groupId>
